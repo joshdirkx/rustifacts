@@ -1,6 +1,6 @@
 # Rustifacts
 
-Rustifacts is a command-line tool designed to prepare files for easy upload to Claude AI projects. It simplifies the process of organizing and formatting your project files, making it easier to share your code with Claude.
+Rustifacts is a command-line tool originally designed to make it easier to upload artifacts to Claude AI projects. Its primary purpose is to output all of your project files in a single directory, simplifying the process of sharing your code with Claude.
 
 ## Features
 
