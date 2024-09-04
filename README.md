@@ -55,7 +55,3 @@ Rustifacts automatically ignores common directories like `.git`, `node_modules`,
 Rustifacts will create the following in your destination directory:
 
 1. Processed files with flattened names
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
