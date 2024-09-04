@@ -8,6 +8,10 @@ use config::Config;
 mod config;
 mod artifact;
 
+/// The main entry point of the application.
+///
+/// This function initializes the logger, parses the command-line arguments,
+/// and runs the main logic of the application.
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
@@ -19,6 +23,19 @@ fn main() {
     }
 }
 
+/// Runs the main logic of the application.
+///
+/// This function processes the files according to the provided configuration,
+/// collects artifacts, and writes them to the destination directory.
+///
+/// # Arguments
+///
+/// * `config` - The configuration options parsed from command-line arguments.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the process completes successfully, or an `Err` containing
+/// the error if any part of the process fails.
 fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting file preparation process");
     info!("Source directory: {}", config.source_dir.display());
