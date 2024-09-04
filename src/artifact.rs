@@ -3,6 +3,8 @@ use std::{fs, io};
 use log::{info, warn};
 use walkdir::WalkDir;
 use std::fs::File;
+use std::io::Write;
+use thiserror::Error;
 use crate::config::Config;
 
 pub struct Artifact {
@@ -11,10 +13,17 @@ pub struct Artifact {
     pub content: String,
 }
 
+#[derive(Error, Debug)]
+pub enum ArtifactError {
+    #[error("IO error: {0}")]
+    Io(#[from] io::Error),
+    #[error("Path strip error: {0}")]
+    StripPrefix(#[from] std::path::StripPrefixError),
+}
+
 impl Artifact {
-    pub fn new(original_path: PathBuf, source_dir: &Path) -> io::Result<Self> {
-        let relative_path = original_path.strip_prefix(source_dir)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    pub fn new(original_path: PathBuf, source_dir: &Path) -> Result<Self, ArtifactError> {
+        let relative_path = original_path.strip_prefix(source_dir)?;
         let new_filename = Self::generate_new_filename(relative_path);
         let content = fs::read_to_string(&original_path)?;
 
@@ -34,10 +43,10 @@ impl Artifact {
         fs::write(dest_path, &self.content)
     }
 
-    pub fn collect(config: &Config) -> io::Result<Vec<Self>> {
+    pub fn collect(config: &Config) -> Result<Vec<Self>, ArtifactError> {
         info!("Starting artifact collection from {}", config.source_dir.display());
         let mut artifacts = Vec::new();
-        let ignored_dirs: Vec<&str> = config.ignored_dirs.split(',').collect();
+        let ignored_dirs = config.get_ignored_dirs();
 
         for entry in WalkDir::new(&config.source_dir).follow_links(true).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
@@ -59,8 +68,13 @@ impl Artifact {
         Ok(artifacts)
     }
 
-    fn is_ignored(path: &Path, source_dir: &Path, ignored_dirs: &[&str]) -> bool {
-        ignored_dirs.iter().any(|dir| path.starts_with(source_dir.join(dir)))
+    fn is_ignored(path: &Path, source_dir: &Path, ignored_dirs: &[String]) -> bool {
+        for ignored_dir in ignored_dirs {
+            if path.starts_with(source_dir.join(ignored_dir)) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn write_all(artifacts: &[Self], dest_dir: &Path) -> io::Result<()> {
@@ -68,23 +82,6 @@ impl Artifact {
         for artifact in artifacts {
             artifact.write(dest_dir)?;
         }
-        Ok(())
-    }
-
-    pub fn generate_summary(artifacts: &[Self], dest_dir: &Path) -> io::Result<()> {
-        let summary_path = dest_dir.join("summary.md");
-        let mut file = File::create(&summary_path)?;
-
-        writeln!(file, "# Artifact Summary\n")?;
-
-        for artifact in artifacts {
-            writeln!(file, "## {}", artifact.new_filename)?;
-            writeln!(file, "Original path: {}", artifact.original_path.display())?;
-            writeln!(file, "\n```")?;
-            writeln!(file, "{}", artifact.content)?;
-            writeln!(file, "```\n")?;
-        }
-
         Ok(())
     }
 }

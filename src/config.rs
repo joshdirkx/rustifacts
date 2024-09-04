@@ -13,6 +13,28 @@ pub struct Config {
     pub dest_dir: PathBuf,
 
     /// Comma-separated list of directories to ignore
-    #[arg(short, long, default_value = "target,frontend/target,frontend/pkg")]
-    pub ignored_dirs: String,
+    #[arg(short, long, default_value = "")]
+    pub additional_ignored_dirs: String,
+}
+
+impl Config {
+    pub fn get_ignored_dirs(&self) -> Vec<String> {
+        let mut ignored_dirs = vec![
+            ".git".to_string(),
+            ".idea".to_string(),
+            ".vscode".to_string(),
+            "node_modules".to_string(),
+            "target".to_string(),
+            "build".to_string(),
+            "dist".to_string(),
+            "__pycache__".to_string(),
+        ];
+
+        ignored_dirs.extend(self.additional_ignored_dirs
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(String::from));
+
+        ignored_dirs
+    }
 }
