@@ -31,6 +31,10 @@ pub struct Config {
     /// Comma-separated list of file extensions to include (e.g., "rs,toml,md")
     #[arg(short = 'i', long, default_value = "")]
     pub included_extensions: String,
+
+    /// Preset configuration to use (e.g., "nextjs")
+    #[arg(long)]
+    pub preset: Option<String>,
 }
 
 impl Config {
@@ -107,5 +111,9 @@ impl Config {
             .filter(|s| !s.is_empty())
             .map(|s| s.trim().to_lowercase())
             .collect()
+    }
+
+    pub fn apply_preset(&mut self, preset_name: &str) -> Result<(), String> {
+        crate::presets::apply_preset(self, preset_name)
     }
 }

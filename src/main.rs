@@ -7,6 +7,7 @@ use config::Config;
 
 mod config;
 mod artifact;
+mod presets;
 
 /// The main entry point of the Rustifacts application.
 ///
@@ -15,7 +16,15 @@ mod artifact;
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let config = Config::parse();
+    let mut config = Config::parse();
+
+    if let Some(preset_name) = config.preset.take() {
+        info!("Applying preset: {}", preset_name);
+        if let Err(e) = config.apply_preset(&preset_name) {
+            error!("Failed to apply preset: {}", e);
+            process::exit(1);
+        }
+    }
 
     if let Err(e) = run(config) {
         error!("Application error: {}", e);
