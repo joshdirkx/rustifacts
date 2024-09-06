@@ -102,48 +102,41 @@ impl Artifact {
         debug!("Excluded extensions: {:?}", excluded_extensions);
         debug!("Included extensions: {:?}", included_extensions);
 
-        let walker: Box<dyn Iterator<Item = Result<DirEntry, walkdir::Error>>> = if target_dirs.is_empty() {
-            debug!("Processing entire source directory");
-            Box::new(WalkDir::new(&config.source_dir).follow_links(true).into_iter())
-        } else {
-            debug!("Processing specified target directories: {:?}", target_dirs);
-            Box::new(target_dirs.into_iter()
-                .filter(|dir| config.source_dir.join(dir).exists())
-                .flat_map(|dir| {
-                    let full_path = config.source_dir.join(&dir);
-                    debug!("Walking target directory: {}", full_path.display());
-                    WalkDir::new(full_path).follow_links(true)
-                })
-                .into_iter())
-        };
+        let mut dirs_to_walk = vec![config.source_dir.clone()];
+        if !target_dirs.is_empty() {
+            dirs_to_walk.extend(target_dirs.iter().map(|dir| config.source_dir.join(dir)));
+        }
 
-        for entry in walker.filter_map(Result::ok) {
-            let path = entry.path().to_path_buf();
-            debug!("Processing entry: {}", path.display());
+        for dir in dirs_to_walk {
+            debug!("Walking directory: {}", dir.display());
+            for entry in WalkDir::new(&dir).follow_links(true).into_iter().filter_map(Result::ok) {
+                let path = entry.path().to_path_buf();
+                debug!("Processing entry: {}", path.display());
 
-            if path.is_file() && processed_files.insert(path.clone()) {
-                let relative_path = path.strip_prefix(&config.source_dir).map_err(ArtifactError::StripPrefix)?;
-                let is_ignored = Self::is_ignored(relative_path, &ignored_dirs);
-                let is_excluded = Self::is_excluded(&path, &excluded_extensions);
-                let is_included = Self::is_included(&path, &included_extensions);
+                if path.is_file() && processed_files.insert(path.clone()) {
+                    let relative_path = path.strip_prefix(&config.source_dir).map_err(ArtifactError::StripPrefix)?;
+                    let is_ignored = Self::is_ignored(relative_path, &ignored_dirs);
+                    let is_excluded = Self::is_excluded(&path, &excluded_extensions);
+                    let is_included = Self::is_included(&path, &included_extensions);
 
-                debug!("File: {}, ignored: {}, excluded: {}, included: {}",
-                       path.display(), is_ignored, is_excluded, is_included);
+                    debug!("File: {}, ignored: {}, excluded: {}, included: {}",
+                           path.display(), is_ignored, is_excluded, is_included);
 
-                if !is_ignored && !is_excluded && is_included {
-                    debug!("Creating artifact for file: {}", path.display());
+                    if !is_ignored && !is_excluded && is_included {
+                        debug!("Creating artifact for file: {}", path.display());
 
-                    match Self::new(path.clone(), &config.source_dir) {
-                        Ok(artifact) => {
-                            info!("Created artifact: {}", artifact.new_filename);
-                            artifacts.push(artifact);
-                        },
-                        Err(e) => {
-                            warn!("Failed to process file {}: {}", path.display(), e);
+                        match Self::new(path.clone(), &config.source_dir) {
+                            Ok(artifact) => {
+                                info!("Created artifact: {}", artifact.new_filename);
+                                artifacts.push(artifact);
+                            },
+                            Err(e) => {
+                                warn!("Failed to process file {}: {}", path.display(), e);
+                            }
                         }
+                    } else {
+                        debug!("Skipping file: {}", path.display());
                     }
-                } else {
-                    debug!("Skipping file: {}", path.display());
                 }
             }
         }
@@ -152,7 +145,6 @@ impl Artifact {
         debug!("Exiting Artifact::collect");
         Ok(artifacts)
     }
-
     /// Checks if a given path should be ignored based on the ignored directories list.
     ///
     /// # Arguments
