@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::path::PathBuf;
+use crate::config_file::ConfigFile;
 
 /// Configuration options for the Rustifacts file preparation tool.
 ///
@@ -35,6 +36,10 @@ pub struct Config {
     /// Preset configuration to use (e.g., "nextjs")
     #[arg(long)]
     pub preset: Option<String>,
+
+    /// Path to the configuration file
+    #[arg(long, short = 'c')]
+    pub config_file: Option<PathBuf>,
 }
 
 impl Config {
@@ -115,5 +120,13 @@ impl Config {
 
     pub fn apply_preset(&mut self, preset_name: &str) -> Result<(), String> {
         crate::presets::apply_preset(self, preset_name)
+    }
+
+    pub fn apply_config_file(&mut self) -> anyhow::Result<()> {
+        if let Some(ref config_path) = self.config_file {
+            let file_config = ConfigFile::read_from_file(config_path)?;
+            file_config.apply_to_config(self);
+        }
+        Ok(())
     }
 }

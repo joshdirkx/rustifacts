@@ -1,0 +1,6 @@
+source_dir = "."
+dest_dir = "./output"
+additional_ignored_dirs = ["temp", "logs"]
+target_dirs = [".", "src"]
+excluded_extensions = ["tmp", "log"]
+included_extensions = ["rs", "toml"]

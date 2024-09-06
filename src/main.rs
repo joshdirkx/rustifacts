@@ -1,5 +1,5 @@
 use std::process;
-use log::{error, info};
+use log::{error, info, debug};
 use env_logger::Env;
 use clap::Parser;
 use artifact::Artifact;
@@ -8,60 +8,68 @@ use config::Config;
 mod config;
 mod artifact;
 mod presets;
+mod config_file;
 
-/// The main entry point of the Rustifacts application.
-///
-/// This function initializes the logger, parses the command-line arguments,
-/// and runs the main logic of the application.
 fn main() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info,rustifacts=debug")).init();
+
+    debug!("Starting Rustifacts");
 
     let mut config = Config::parse();
 
+    debug!("Parsed initial config: {:?}", config);
+
+    // Apply configuration file if specified
+    if let Some(ref config_path) = config.config_file {
+        debug!("Applying configuration from file: {}", config_path.display());
+        if let Err(e) = config.apply_config_file() {
+            error!("Failed to apply configuration file: {}", e);
+            process::exit(1);
+        }
+    }
+
+    debug!("Config after applying config file: {:?}", config);
+
+    // Apply preset if specified
     if let Some(preset_name) = config.preset.take() {
-        info!("Applying preset: {}", preset_name);
+        debug!("Applying preset: {}", preset_name);
         if let Err(e) = config.apply_preset(&preset_name) {
             error!("Failed to apply preset: {}", e);
             process::exit(1);
         }
     }
 
-    if let Err(e) = run(config) {
-        error!("Application error: {}", e);
-        process::exit(1);
-    }
-}
+    debug!("Final config: {:?}", config);
 
-/// Runs the main logic of the Rustifacts application.
-///
-/// This function processes the files according to the provided configuration,
-/// collects artifacts, and writes them to the destination directory.
-///
-/// # Arguments
-///
-/// * `config` - The configuration options parsed from command-line arguments.
-///
-/// # Returns
-///
-/// Returns `Ok(())` if the process completes successfully, or an `Err` containing
-/// the error if any part of the process fails.
-fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    // Log configuration details
     info!("Starting file preparation process");
     info!("Source directory: {}", config.source_dir.display());
     info!("Destination directory: {}", config.dest_dir.display());
     info!("Ignored directories: {:?}", config.get_ignored_dirs());
     info!("Excluded file types: {:?}", config.get_excluded_extensions());
-
-    if let Some(target_dirs) = &config.target_dirs {
+    if let Some(ref target_dirs) = config.target_dirs {
         info!("Target directories: {}", target_dirs);
     } else {
         info!("Processing entire source directory");
     }
 
-    let artifacts = Artifact::collect(&config)?;
+    // Collect and process artifacts
+    debug!("Starting artifact collection and processing");
+    match collect_and_process_artifacts(&config) {
+        Ok(_) => info!("File preparation completed successfully"),
+        Err(e) => {
+            error!("Error during file preparation: {}", e);
+            process::exit(1);
+        }
+    }
 
+    debug!("Rustifacts completed");
+}
+
+fn collect_and_process_artifacts(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    debug!("Collecting artifacts");
+    let artifacts = Artifact::collect(config)?;
+    debug!("Writing artifacts");
     Artifact::write_all(&artifacts, &config.dest_dir)?;
-
-    info!("File preparation completed successfully");
     Ok(())
 }

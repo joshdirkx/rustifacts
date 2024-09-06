@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::{fs, io};
+use std::collections::HashSet;
 use log::{debug, info, warn};
 use walkdir::{WalkDir, DirEntry};
 use thiserror::Error;
@@ -87,18 +88,25 @@ impl Artifact {
     /// Returns `Result<Vec<Self>, ArtifactError>` containing a vector of collected artifacts
     /// if successful, or an `ArtifactError` if an error occurs during collection.
     pub fn collect(config: &Config) -> Result<Vec<Self>, ArtifactError> {
+        debug!("Entering Artifact::collect");
         info!("Starting artifact collection from {}", config.source_dir.display());
         let mut artifacts = Vec::new();
         let ignored_dirs = config.get_ignored_dirs();
         let target_dirs = config.get_target_dirs();
         let excluded_extensions = config.get_excluded_extensions();
         let included_extensions = config.get_included_extensions();
+        let mut processed_files = HashSet::new();
+
+        debug!("Ignored dirs: {:?}", ignored_dirs);
+        debug!("Target dirs: {:?}", target_dirs);
+        debug!("Excluded extensions: {:?}", excluded_extensions);
+        debug!("Included extensions: {:?}", included_extensions);
 
         let walker: Box<dyn Iterator<Item = Result<DirEntry, walkdir::Error>>> = if target_dirs.is_empty() {
-            info!("Processing entire source directory");
+            debug!("Processing entire source directory");
             Box::new(WalkDir::new(&config.source_dir).follow_links(true).into_iter())
         } else {
-            info!("Processing specified target directories: {:?}", target_dirs);
+            debug!("Processing specified target directories: {:?}", target_dirs);
             Box::new(target_dirs.into_iter()
                 .filter(|dir| config.source_dir.join(dir).exists())
                 .flat_map(|dir| {
@@ -111,15 +119,19 @@ impl Artifact {
 
         for entry in walker.filter_map(Result::ok) {
             let path = entry.path().to_path_buf();
+            debug!("Processing entry: {}", path.display());
 
-            if path.is_file() {
+            if path.is_file() && processed_files.insert(path.clone()) {
                 let relative_path = path.strip_prefix(&config.source_dir).map_err(ArtifactError::StripPrefix)?;
                 let is_ignored = Self::is_ignored(relative_path, &ignored_dirs);
                 let is_excluded = Self::is_excluded(&path, &excluded_extensions);
                 let is_included = Self::is_included(&path, &included_extensions);
 
+                debug!("File: {}, ignored: {}, excluded: {}, included: {}",
+                       path.display(), is_ignored, is_excluded, is_included);
+
                 if !is_ignored && !is_excluded && is_included {
-                    debug!("Processing file: {}", path.display());
+                    debug!("Creating artifact for file: {}", path.display());
 
                     match Self::new(path.clone(), &config.source_dir) {
                         Ok(artifact) => {
@@ -131,15 +143,16 @@ impl Artifact {
                         }
                     }
                 } else {
-                    debug!("Skipping file: {} (ignored: {}, excluded: {}, not included: {})",
-                           path.display(), is_ignored, is_excluded, !is_included);
+                    debug!("Skipping file: {}", path.display());
                 }
             }
         }
 
         info!("Artifact collection completed. Total artifacts: {}", artifacts.len());
+        debug!("Exiting Artifact::collect");
         Ok(artifacts)
     }
+
     /// Checks if a given path should be ignored based on the ignored directories list.
     ///
     /// # Arguments
