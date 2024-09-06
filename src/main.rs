@@ -41,6 +41,7 @@ fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     info!("Source directory: {}", config.source_dir.display());
     info!("Destination directory: {}", config.dest_dir.display());
     info!("Ignored directories: {:?}", config.get_ignored_dirs());
+    info!("Excluded file types: {:?}", config.get_excluded_extensions());
 
     if let Some(target_dirs) = &config.target_dirs {
         info!("Target directories: {}", target_dirs);

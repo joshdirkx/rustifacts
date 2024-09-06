@@ -23,6 +23,10 @@ pub struct Config {
     /// Comma-separated list of target directories to include (relative to source_dir)
     #[arg(short, long)]
     pub target_dirs: Option<String>,
+
+    /// Comma-separated list of file extensions to exclude (e.g., "jpg,png,pdf")
+    #[arg(short = 'x', long, default_value = "")]
+    pub excluded_extensions: String,
 }
 
 impl Config {
@@ -74,4 +78,18 @@ impl Config {
             .map(|dirs| dirs.split(',').filter(|s| !s.is_empty()).map(PathBuf::from).collect())
             .unwrap_or_else(Vec::new)
     }
+
+    /// Returns a vector of file extensions to exclude during processing.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<String>` containing all file extensions to be excluded.
+    pub fn get_excluded_extensions(&self) -> Vec<String> {
+        self.excluded_extensions
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim().to_lowercase())
+            .collect()
+    }
+
 }
