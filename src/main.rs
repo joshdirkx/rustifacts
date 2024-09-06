@@ -42,6 +42,12 @@ fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     info!("Destination directory: {}", config.dest_dir.display());
     info!("Ignored directories: {:?}", config.get_ignored_dirs());
 
+    if let Some(target_dirs) = &config.target_dirs {
+        info!("Target directories: {}", target_dirs);
+    } else {
+        info!("Processing entire source directory");
+    }
+
     let artifacts = Artifact::collect(&config)?;
 
     Artifact::write_all(&artifacts, &config.dest_dir)?;

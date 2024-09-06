@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 use log::{info, warn};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 use thiserror::Error;
 use crate::config::Config;
 
@@ -86,14 +86,25 @@ impl Artifact {
         info!("Starting artifact collection from {}", config.source_dir.display());
         let mut artifacts = Vec::new();
         let ignored_dirs = config.get_ignored_dirs();
+        let target_dirs = config.get_target_dirs();
 
-        for entry in WalkDir::new(&config.source_dir).follow_links(true).into_iter().filter_map(|e| e.ok()) {
-            let path = entry.path();
+        let walker: Box<dyn Iterator<Item = Result<DirEntry, walkdir::Error>>> = if target_dirs.is_empty() {
+            Box::new(WalkDir::new(&config.source_dir).follow_links(true).into_iter())
+        } else {
+            Box::new(target_dirs.into_iter()
+                .map(|dir| config.source_dir.join(dir))
+                .filter(|dir| dir.exists())
+                .flat_map(|dir| WalkDir::new(dir).follow_links(true))
+                .into_iter())
+        };
 
-            if path.is_file() && !Self::is_ignored(path, &config.source_dir, &ignored_dirs) {
+        for entry in walker.filter_map(|e| e.ok()) {
+            let path = entry.path().to_path_buf();
+
+            if path.is_file() && !Self::is_ignored(&path, &config.source_dir, &ignored_dirs) {
                 info!("Processing file: {}", path.display());
 
-                match Self::new(path.to_path_buf(), &config.source_dir) {
+                match Self::new(path.clone(), &config.source_dir) {
                     Ok(artifact) => artifacts.push(artifact),
                     Err(e) => {
                         warn!("Failed to process file {}: {}", path.display(), e);

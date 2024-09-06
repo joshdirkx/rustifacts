@@ -19,6 +19,10 @@ pub struct Config {
     /// Comma-separated list of additional directories to ignore
     #[arg(short, long, default_value = "")]
     pub additional_ignored_dirs: String,
+
+    /// Comma-separated list of target directories to include (relative to source_dir)
+    #[arg(short, long)]
+    pub target_dirs: Option<String>,
 }
 
 impl Config {
@@ -48,6 +52,14 @@ impl Config {
             .map(String::from));
 
         ignored_dirs
+    }
+
+
+    pub fn get_target_dirs(&self) -> Vec<PathBuf> {
+        self.target_dirs
+            .as_ref()
+            .map(|dirs| dirs.split(',').map(PathBuf::from).collect())
+            .unwrap_or_else(Vec::new)
     }
 }
 
