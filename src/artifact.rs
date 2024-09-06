@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::{fs, io};
-use log::{info, warn};
+use log::{debug, info, warn};
 use walkdir::{WalkDir, DirEntry};
 use thiserror::Error;
 use crate::config::Config;
@@ -92,26 +92,47 @@ impl Artifact {
         let ignored_dirs = config.get_ignored_dirs();
         let target_dirs = config.get_target_dirs();
         let excluded_extensions = config.get_excluded_extensions();
+        let included_extensions = config.get_included_extensions();
 
         let walker: Box<dyn Iterator<Item = Result<DirEntry, walkdir::Error>>> = if target_dirs.is_empty() {
             info!("Processing entire source directory");
             Box::new(WalkDir::new(&config.source_dir).follow_links(true).into_iter())
         } else {
-            // ... (previous code for target_dirs remains unchanged)
+            info!("Processing specified target directories: {:?}", target_dirs);
+            Box::new(target_dirs.into_iter()
+                .filter(|dir| config.source_dir.join(dir).exists())
+                .flat_map(|dir| {
+                    let full_path = config.source_dir.join(&dir);
+                    debug!("Walking target directory: {}", full_path.display());
+                    WalkDir::new(full_path).follow_links(true)
+                })
+                .into_iter())
         };
 
-        for entry in walker.filter_map(|e| e.ok()) {
+        for entry in walker.filter_map(Result::ok) {
             let path = entry.path().to_path_buf();
 
-            if path.is_file() && !Self::is_ignored(&path, &config.source_dir, &ignored_dirs) && !Self::is_excluded(&path, &excluded_extensions) {
-                info!("Processing file: {}", path.display());
+            if path.is_file() {
+                let relative_path = path.strip_prefix(&config.source_dir).map_err(ArtifactError::StripPrefix)?;
+                let is_ignored = Self::is_ignored(relative_path, &ignored_dirs);
+                let is_excluded = Self::is_excluded(&path, &excluded_extensions);
+                let is_included = Self::is_included(&path, &included_extensions);
 
-                match Self::new(path.clone(), &config.source_dir) {
-                    Ok(artifact) => artifacts.push(artifact),
-                    Err(e) => {
-                        warn!("Failed to process file {}: {}", path.display(), e);
-                        continue;
+                if !is_ignored && !is_excluded && is_included {
+                    debug!("Processing file: {}", path.display());
+
+                    match Self::new(path.clone(), &config.source_dir) {
+                        Ok(artifact) => {
+                            info!("Created artifact: {}", artifact.new_filename);
+                            artifacts.push(artifact);
+                        },
+                        Err(e) => {
+                            warn!("Failed to process file {}: {}", path.display(), e);
+                        }
                     }
+                } else {
+                    debug!("Skipping file: {} (ignored: {}, excluded: {}, not included: {})",
+                           path.display(), is_ignored, is_excluded, !is_included);
                 }
             }
         }
@@ -119,7 +140,6 @@ impl Artifact {
         info!("Artifact collection completed. Total artifacts: {}", artifacts.len());
         Ok(artifacts)
     }
-
     /// Checks if a given path should be ignored based on the ignored directories list.
     ///
     /// # Arguments
@@ -131,14 +151,8 @@ impl Artifact {
     /// # Returns
     ///
     /// Returns `true` if the path should be ignored, `false` otherwise.
-    fn is_ignored(path: &Path, source_dir: &Path, ignored_dirs: &[String]) -> bool {
-        for ignored_dir in ignored_dirs {
-            let ignored_path = source_dir.join(ignored_dir);
-            if path.starts_with(&ignored_path) {
-                return true;
-            }
-        }
-        false
+    fn is_ignored(path: &Path, ignored_dirs: &[String]) -> bool {
+        ignored_dirs.iter().any(|dir| path.starts_with(dir))
     }
 
     /// Writes all artifacts to the destination directory.
@@ -170,9 +184,34 @@ impl Artifact {
     ///
     /// Returns `true` if the file should be excluded, `false` otherwise.
     fn is_excluded(path: &Path, excluded_extensions: &[String]) -> bool {
+        if excluded_extensions.is_empty() {
+            return false;
+        }
         if let Some(extension) = path.extension() {
             let ext = extension.to_string_lossy().to_lowercase();
             excluded_extensions.iter().any(|excluded| *excluded == ext)
+        } else {
+            false
+        }
+    }
+
+    /// Checks if a given file should be included based on its extension.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to check.
+    /// * `included_extensions` - A slice of file extensions to include.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the file should be included, `false` otherwise.
+    fn is_included(path: &Path, included_extensions: &[String]) -> bool {
+        if included_extensions.is_empty() {
+            return true;
+        }
+        if let Some(extension) = path.extension() {
+            let ext = extension.to_string_lossy().to_lowercase();
+            included_extensions.iter().any(|included| *included == ext)
         } else {
             false
         }

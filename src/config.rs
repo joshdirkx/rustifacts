@@ -27,6 +27,10 @@ pub struct Config {
     /// Comma-separated list of file extensions to exclude (e.g., "jpg,png,pdf")
     #[arg(short = 'x', long, default_value = "")]
     pub excluded_extensions: String,
+
+    /// Comma-separated list of file extensions to include (e.g., "rs,toml,md")
+    #[arg(short = 'i', long, default_value = "")]
+    pub included_extensions: String,
 }
 
 impl Config {
@@ -92,4 +96,16 @@ impl Config {
             .collect()
     }
 
+    /// Returns a vector of file extensions to include during processing.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<String>` containing all file extensions to be included.
+    pub fn get_included_extensions(&self) -> Vec<String> {
+        self.included_extensions
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim().to_lowercase())
+            .collect()
+    }
 }
