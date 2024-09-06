@@ -46,6 +46,10 @@ impl Config {
             "__pycache__".to_string(),
         ];
 
+        if let Some(dest_dir_name) = self.dest_dir.file_name() {
+            ignored_dirs.push(dest_dir_name.to_string_lossy().into_owned());
+        }
+
         ignored_dirs.extend(self.additional_ignored_dirs
             .split(',')
             .filter(|s| !s.is_empty())
@@ -54,11 +58,10 @@ impl Config {
         ignored_dirs
     }
 
-
     pub fn get_target_dirs(&self) -> Vec<PathBuf> {
         self.target_dirs
             .as_ref()
-            .map(|dirs| dirs.split(',').map(PathBuf::from).collect())
+            .map(|dirs| dirs.split(',').filter(|s| !s.is_empty()).map(PathBuf::from).collect())
             .unwrap_or_else(Vec::new)
     }
 }

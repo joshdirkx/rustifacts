@@ -89,12 +89,17 @@ impl Artifact {
         let target_dirs = config.get_target_dirs();
 
         let walker: Box<dyn Iterator<Item = Result<DirEntry, walkdir::Error>>> = if target_dirs.is_empty() {
+            info!("Processing entire source directory");
             Box::new(WalkDir::new(&config.source_dir).follow_links(true).into_iter())
         } else {
+            info!("Processing specified directories: {:?}", target_dirs);
             Box::new(target_dirs.into_iter()
-                .map(|dir| config.source_dir.join(dir))
-                .filter(|dir| dir.exists())
-                .flat_map(|dir| WalkDir::new(dir).follow_links(true))
+                .filter(|dir| config.source_dir.join(dir).exists())
+                .flat_map(|dir| {
+                    let full_path = config.source_dir.join(&dir);
+                    info!("Walking directory: {}", full_path.display());
+                    WalkDir::new(full_path).follow_links(true)
+                })
                 .into_iter())
         };
 
@@ -131,12 +136,14 @@ impl Artifact {
     /// Returns `true` if the path should be ignored, `false` otherwise.
     fn is_ignored(path: &Path, source_dir: &Path, ignored_dirs: &[String]) -> bool {
         for ignored_dir in ignored_dirs {
-            if path.starts_with(source_dir.join(ignored_dir)) {
+            let ignored_path = source_dir.join(ignored_dir);
+            if path.starts_with(&ignored_path) {
                 return true;
             }
         }
         false
     }
+
 
     /// Writes all artifacts to the destination directory.
     ///
