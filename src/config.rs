@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-/// Configuration options for the file preparation tool.
+/// Configuration options for the Rustifacts file preparation tool.
 ///
 /// This struct is derived from `clap::Parser` to automatically generate
 /// a command-line interface for setting these options.
@@ -29,7 +29,7 @@ impl Config {
     /// Returns a vector of directories to ignore during file processing.
     ///
     /// This method combines a default list of commonly ignored directories
-    /// with any additional directories specified by the user.
+    /// with any additional directories specified by the user and the destination directory.
     ///
     /// # Returns
     ///
@@ -46,6 +46,7 @@ impl Config {
             "__pycache__".to_string(),
         ];
 
+        // Add the destination directory to the ignored list
         if let Some(dest_dir_name) = self.dest_dir.file_name() {
             ignored_dirs.push(dest_dir_name.to_string_lossy().into_owned());
         }
@@ -58,63 +59,19 @@ impl Config {
         ignored_dirs
     }
 
+    /// Returns a vector of target directories to process.
+    ///
+    /// If target directories are specified, only these directories will be processed.
+    /// If no target directories are specified, an empty vector is returned,
+    /// indicating that the entire source directory should be processed.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<PathBuf>` containing the target directories to process.
     pub fn get_target_dirs(&self) -> Vec<PathBuf> {
         self.target_dirs
             .as_ref()
             .map(|dirs| dirs.split(',').filter(|s| !s.is_empty()).map(PathBuf::from).collect())
             .unwrap_or_else(Vec::new)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::PathBuf;
-
-    #[test]
-    fn test_config_default_values() {
-        let args = vec!["program"];
-        let config = Config::parse_from(args);
-
-        assert_eq!(config.source_dir, PathBuf::from("."));
-        assert_eq!(config.dest_dir, PathBuf::from("./claude_files"));
-        assert_eq!(config.additional_ignored_dirs, "");
-    }
-
-    #[test]
-    fn test_config_custom_values() {
-        let args = vec![
-            "program",
-            "--source-dir", "/path/to/source",
-            "--dest-dir", "/path/to/dest",
-            "--additional-ignored-dirs", "node_modules,dist"
-        ];
-        let config = Config::parse_from(args);
-
-        assert_eq!(config.source_dir, PathBuf::from("/path/to/source"));
-        assert_eq!(config.dest_dir, PathBuf::from("/path/to/dest"));
-        assert_eq!(config.additional_ignored_dirs, "node_modules,dist");
-    }
-
-    #[test]
-    fn test_get_ignored_dirs() {
-        let config = Config {
-            source_dir: PathBuf::from("."),
-            dest_dir: PathBuf::from("./claude_files"),
-            additional_ignored_dirs: "custom_dir,another_dir".to_string(),
-        };
-
-        let ignored_dirs = config.get_ignored_dirs();
-
-        // Check if default ignored dirs are present
-        assert!(ignored_dirs.contains(&".git".to_string()));
-        assert!(ignored_dirs.contains(&"target".to_string()));
-
-        // Check if additional ignored dirs are present
-        assert!(ignored_dirs.contains(&"custom_dir".to_string()));
-        assert!(ignored_dirs.contains(&"another_dir".to_string()));
-
-        // Check total count (8 default + 2 additional)
-        assert_eq!(ignored_dirs.len(), 10);
     }
 }

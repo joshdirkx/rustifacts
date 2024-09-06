@@ -1,57 +1,80 @@
-use std::process;
-use log::{error, info};
-use env_logger::Env;
-use clap::Parser;
-use artifact::Artifact;
-use config::Config;
-
 mod config;
 mod artifact;
 
-/// The main entry point of the application.
+use clap::Parser;
+use std::path::PathBuf;
+
+/// Configuration options for the Rustifacts file preparation tool.
 ///
-/// This function initializes the logger, parses the command-line arguments,
-/// and runs the main logic of the application.
-fn main() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+/// This struct is derived from `clap::Parser` to automatically generate
+/// a command-line interface for setting these options.
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+pub struct Config {
+    /// Source directory to process files from
+    #[arg(short, long, default_value = ".")]
+    pub source_dir: PathBuf,
 
-    let config = Config::parse();
+    /// Destination directory to copy processed files to
+    #[arg(short, long, default_value = "./claude_files")]
+    pub dest_dir: PathBuf,
 
-    if let Err(e) = run(config) {
-        error!("Application error: {}", e);
-        process::exit(1);
-    }
+    /// Comma-separated list of additional directories to ignore
+    #[arg(short, long, default_value = "")]
+    pub additional_ignored_dirs: String,
+
+    /// Comma-separated list of target directories to include (relative to source_dir)
+    #[arg(short, long)]
+    pub target_dirs: Option<String>,
 }
 
-/// Runs the main logic of the application.
-///
-/// This function processes the files according to the provided configuration,
-/// collects artifacts, and writes them to the destination directory.
-///
-/// # Arguments
-///
-/// * `config` - The configuration options parsed from command-line arguments.
-///
-/// # Returns
-///
-/// Returns `Ok(())` if the process completes successfully, or an `Err` containing
-/// the error if any part of the process fails.
-fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Starting file preparation process");
-    info!("Source directory: {}", config.source_dir.display());
-    info!("Destination directory: {}", config.dest_dir.display());
-    info!("Ignored directories: {:?}", config.get_ignored_dirs());
+impl Config {
+    /// Returns a vector of directories to ignore during file processing.
+    ///
+    /// This method combines a default list of commonly ignored directories
+    /// with any additional directories specified by the user and the destination directory.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<String>` containing all directories to be ignored.
+    pub fn get_ignored_dirs(&self) -> Vec<String> {
+        let mut ignored_dirs = vec![
+            ".git".to_string(),
+            ".idea".to_string(),
+            ".vscode".to_string(),
+            "node_modules".to_string(),
+            "target".to_string(),
+            "build".to_string(),
+            "dist".to_string(),
+            "__pycache__".to_string(),
+        ];
 
-    if let Some(target_dirs) = &config.target_dirs {
-        info!("Target directories: {}", target_dirs);
-    } else {
-        info!("Processing entire source directory");
+        // Add the destination directory to the ignored list
+        if let Some(dest_dir_name) = self.dest_dir.file_name() {
+            ignored_dirs.push(dest_dir_name.to_string_lossy().into_owned());
+        }
+
+        ignored_dirs.extend(self.additional_ignored_dirs
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(String::from));
+
+        ignored_dirs
     }
 
-    let artifacts = Artifact::collect(&config)?;
-
-    Artifact::write_all(&artifacts, &config.dest_dir)?;
-
-    info!("File preparation completed successfully");
-    Ok(())
+    /// Returns a vector of target directories to process.
+    ///
+    /// If target directories are specified, only these directories will be processed.
+    /// If no target directories are specified, an empty vector is returned,
+    /// indicating that the entire source directory should be processed.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<PathBuf>` containing the target directories to process.
+    pub fn get_target_dirs(&self) -> Vec<PathBuf> {
+        self.target_dirs
+            .as_ref()
+            .map(|dirs| dirs.split(',').filter(|s| !s.is_empty()).map(PathBuf::from).collect())
+            .unwrap_or_else(Vec::new)
+    }
 }
