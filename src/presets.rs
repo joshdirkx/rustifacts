@@ -28,7 +28,7 @@ pub fn get_preset_configs() -> HashMap<String, PresetConfig> {
             excluded_extensions: vec![],
             target_dirs: vec![
                 ".".to_string(),
-                "pages".to_string(),
+                "src".to_string(),
                 "components".to_string(),
                 "styles".to_string(),
                 "public".to_string(),
