@@ -10,6 +10,11 @@ mod artifact;
 mod presets;
 mod config_file;
 
+/// The main entry point for the Rustifacts application.
+///
+/// This function initializes logging, parses command-line arguments,
+/// applies configuration files and presets, and runs the artifact
+/// collection and processing.
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info,rustifacts=debug")).init();
 
@@ -66,6 +71,16 @@ fn main() {
     debug!("Rustifacts completed");
 }
 
+/// Collects and processes artifacts based on the provided configuration.
+///
+/// # Arguments
+///
+/// * `config` - The configuration options for artifact processing.
+///
+/// # Returns
+///
+/// Returns `Result<(), Box<dyn std::error::Error>>` indicating success or failure
+/// of the artifact collection and processing.
 fn collect_and_process_artifacts(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     debug!("Collecting artifacts");
     let artifacts = Artifact::collect(config)?;

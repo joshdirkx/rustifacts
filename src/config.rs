@@ -118,10 +118,24 @@ impl Config {
             .collect()
     }
 
+    /// Applies a preset configuration to the current Config instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `preset_name` - The name of the preset to apply.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<(), String>` indicating success or failure of applying the preset.
     pub fn apply_preset(&mut self, preset_name: &str) -> Result<(), String> {
         crate::presets::apply_preset(self, preset_name)
     }
 
+    /// Applies configuration from a file to the current Config instance.
+    ///
+    /// # Returns
+    ///
+    /// Returns `anyhow::Result<()>` indicating success or failure of applying the configuration file.
     pub fn apply_config_file(&mut self) -> anyhow::Result<()> {
         if let Some(ref config_path) = self.config_file {
             let file_config = ConfigFile::read_from_file(config_path)?;

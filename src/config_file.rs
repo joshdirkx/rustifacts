@@ -16,6 +16,16 @@ pub struct ConfigFile {
 }
 
 impl ConfigFile {
+    /// Reads and parses a configuration file.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the configuration file.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<Self, anyhow::Error>` containing the parsed ConfigFile if successful,
+    /// or an error if reading or parsing fails.
     pub fn read_from_file(path: &Path) -> Result<Self> {
         let contents = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file: {}", path.display()))?;
@@ -24,6 +34,11 @@ impl ConfigFile {
         Ok(config)
     }
 
+    /// Applies the configuration from the file to the given Config instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The Config instance to update.
     pub fn apply_to_config(&self, config: &mut Config) {
         if let Some(ref source_dir) = self.source_dir {
             config.source_dir = source_dir.into();

@@ -9,6 +9,11 @@ pub struct PresetConfig {
     pub target_dirs: Vec<String>,
 }
 
+/// Returns a HashMap of preset configurations.
+///
+/// # Returns
+///
+/// A `HashMap<String, PresetConfig>` containing predefined preset configurations.
 pub fn get_preset_configs() -> HashMap<String, PresetConfig> {
     let mut presets = HashMap::new();
 
@@ -67,6 +72,16 @@ pub fn get_preset_configs() -> HashMap<String, PresetConfig> {
     presets
 }
 
+/// Applies a preset configuration to the given Config instance.
+///
+/// # Arguments
+///
+/// * `config` - The Config instance to update.
+/// * `preset_name` - The name of the preset to apply.
+///
+/// # Returns
+///
+/// Returns `Result<(), String>` indicating success or failure of applying the preset.
 pub fn apply_preset(config: &mut Config, preset_name: &str) -> Result<(), String> {
     if let Some(preset) = get_preset_configs().get(preset_name) {
         config.additional_ignored_dirs = preset.ignored_dirs.join(",");

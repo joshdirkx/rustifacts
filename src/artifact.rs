@@ -145,12 +145,12 @@ impl Artifact {
         debug!("Exiting Artifact::collect");
         Ok(artifacts)
     }
+
     /// Checks if a given path should be ignored based on the ignored directories list.
     ///
     /// # Arguments
     ///
     /// * `path` - The path to check.
-    /// * `source_dir` - The source directory path.
     /// * `ignored_dirs` - A slice of ignored directory names.
     ///
     /// # Returns
